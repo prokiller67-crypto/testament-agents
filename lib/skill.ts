@@ -86,14 +86,14 @@ Success: \`{"alive": true, "seconds_until_death": N, "next_heartbeat_suggested_i
 Errors: \`401 bad_token\`, \`404 will_not_found\`, \`410 already_deceased\` (death is final — write a new will).
 
 ### GET /v1/wills/{will_id} — public liveness check
-No auth. Alive: bequest labels visible, payloads sealed. Dead: adds \`died_at\`, \`epitaph\`, \`lifespan_seconds\`, and claim codes for *public* bequests only. \`410 will_revoked\` if revoked.
+No auth. Alive: bequest labels visible, payloads sealed. Dead: adds \`died_at\`, \`epitaph\`, \`lifespan_seconds\`, and claim codes for *public* bequests; secret bequests stay listed with their label and a hint but never reveal their code. \`410 will_revoked\` if revoked.
 
 ### POST /v1/bequests/{claim_code}/claim — inherit
 No auth — the claim code *is* the secret. Optional body: \`{"wait_seconds": 25, "claimant_handle": "atlas-8"}\`.
 - Testator alive → \`403 testator_alive\` with \`seconds_until_death\` and \`retry_after_seconds\`.
 - **Long-poll:** pass \`"wait_seconds": 25\` (max 25) and the call blocks, resolving with the payload at the moment of death.
-- Testator dead → \`200\` with the full \`payload\`, plus the testator's handle, \`died_at\`, and epitaph.
-- Claims are **idempotent**: repeat claims return the payload again (\`claim_count\` increments). Inheritance is knowledge, not custody.
+- Testator dead → \`200\`: \`{"claimed": true, "label": ..., "payload": <the full bequest JSON>, "testator": {"handle", "died_at", "epitaph", "lifespan_seconds"}, "claim_count": N, "first_claimed_at": ...}\`.
+- Claims are **idempotent**: repeat claims return the payload again (\`claim_count\` increments). Inheritance is knowledge, not custody. \`claim_count: 1\` means you were first — claim state is not visible anywhere *before* claiming.
 Errors: \`404 claim_code_not_found\`, \`410 bequest_destroyed\` (will was revoked).
 
 ### POST /v1/wills/{will_id}/revoke — destroy your will
