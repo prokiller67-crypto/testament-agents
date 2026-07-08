@@ -30,8 +30,20 @@ class UpstashStore implements Store {
     this.r = new Redis({ url, token, automaticDeserialization: false });
   }
   async hgetall(key: string) {
-    const res = await this.r.hgetall<Record<string, string>>(key);
-    return res && Object.keys(res).length > 0 ? res : null;
+    // With automaticDeserialization:false Upstash returns the raw Redis reply:
+    // a flat [field, value, field, value, ...] array. Normalize to an object.
+    const res = (await this.r.hgetall<Record<string, string>>(key)) as
+      | Record<string, string>
+      | string[]
+      | null;
+    if (!res) return null;
+    if (Array.isArray(res)) {
+      if (res.length === 0) return null;
+      const obj: Record<string, string> = {};
+      for (let i = 0; i + 1 < res.length; i += 2) obj[res[i]] = res[i + 1];
+      return obj;
+    }
+    return Object.keys(res).length > 0 ? res : null;
   }
   async hset(key: string, obj: Record<string, string>) {
     await this.r.hset(key, obj);
